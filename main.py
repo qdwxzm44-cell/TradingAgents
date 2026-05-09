@@ -13,11 +13,22 @@ from tradingagents.agents.managers.sugar_research_manager import (
 from tradingagents.agents.managers.sugar_backtest_manager import BacktestParams, generate_sugar_backtest_report
 from tradingagents.agents.managers.sugar_backtest_manager import optimize_sugar_backtest
 from tradingagents.config.sugar_sr_config import load_sugar_sr_config, summarize_config
+from tradingagents.utils.sugar_logger import configure_sugar_logger, get_sugar_logger
 
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
 
 app = typer.Typer(help="TradingAgents 统一 CLI（含白糖 SR mock 入口）", no_args_is_help=True)
+
+
+@app.callback()
+def main_callback(
+    verbose: bool = typer.Option(False, "--verbose", help="输出详细日志"),
+    quiet: bool = typer.Option(False, "--quiet", help="仅输出错误日志"),
+) -> None:
+    if verbose and quiet:
+        raise typer.BadParameter("--verbose 与 --quiet 不能同时使用")
+    configure_sugar_logger(verbose=verbose, quiet=quiet)
 
 
 def _parse_int_range(raw: str, flag_name: str) -> list[int]:
@@ -52,11 +63,12 @@ def sugar_sr(
     ),
     archive: bool = typer.Option(False, "--archive", help="启用历史归档与上一期对比，写入 reports/sugar_sr/YYYY-MM-DD.md"),
 ) -> None:
+    logger = get_sugar_logger()
     conf, warnings = load_sugar_sr_config()
     for w in warnings:
-        typer.echo(w)
+        logger.warning(w)
     provider_effective = provider or conf.provider
-    typer.echo(summarize_config(conf))
+    logger.info(summarize_config(conf))
 
     if archive:
         report, archive_path = generate_and_archive_sugar_report(
@@ -95,9 +107,10 @@ def sugar_sr_backtest(
     take_profit: float | None = typer.Option(None, "--take-profit", help="止盈比例（默认读取配置）"),
     initial_cash: float | None = typer.Option(None, "--initial-cash", help="初始资金（默认读取配置）"),
 ) -> None:
+    logger = get_sugar_logger()
     conf, warnings = load_sugar_sr_config()
     for w in warnings:
-        typer.echo(w)
+        logger.warning(w)
     provider_effective = provider or conf.provider
     bw = breakout_window if breakout_window is not None else conf.breakout_window
     ap = atr_period if atr_period is not None else conf.atr_period
@@ -117,8 +130,8 @@ def sugar_sr_backtest(
         raise typer.BadParameter("参数异常：--initial-cash 必须 > 0")
 
     params = BacktestParams(breakout_window=bw, atr_period=ap, stop_loss=sl, take_profit=tp, initial_cash=cash)
-    typer.echo(summarize_config(conf))
-    typer.echo(
+    logger.info(summarize_config(conf))
+    logger.info(
         "参数摘要："
         f"breakout_window={params.breakout_window}, atr_period={params.atr_period}, stop_loss={params.stop_loss}, "
         f"take_profit={params.take_profit}, initial_cash={params.initial_cash}, provider={provider_effective}"

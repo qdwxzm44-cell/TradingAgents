@@ -13,6 +13,7 @@ from datetime import date
 from itertools import product
 
 from tradingagents.dataflows.cn_futures.sugar_sr_provider import SugarSRProvider
+from tradingagents.utils.sugar_logger import get_sugar_logger
 
 
 @dataclass
@@ -136,6 +137,7 @@ def generate_sugar_backtest_report(
     params: BacktestParams | None = None,
 ) -> str:
     """生成中文回测摘要。"""
+    logger = get_sugar_logger()
     end_date = trade_date or date.today().isoformat()
     data_provider = SugarSRProvider(provider=provider)
     ohlc = data_provider.get_kline(end_date, bars=max(60, bars))
@@ -148,6 +150,7 @@ def generate_sugar_backtest_report(
     initial_cash = conf.initial_cash
 
     if len(ohlc) < 25:
+        logger.warning("回测数据不足：至少需要 25 根K线。")
         return (
             "## 白糖 SR 回测摘要\n\n"
             "数据不足，无法进行有效回测（至少需要 25 根K线）。\n\n"
@@ -164,6 +167,8 @@ def generate_sugar_backtest_report(
             "> 风险提示：本回测不构成投资建议，不代表未来收益，不可直接用于实盘自动交易。"
         )
 
+    if conf.breakout_window < 2 or conf.atr_period < 2 or conf.initial_cash <= 0:
+        logger.error("回测参数异常：breakout_window/atr_period/initial_cash 不合法。")
     metrics = _run_backtest(ohlc, conf)
     win_rate = metrics.win_rate
     avg_pnl = metrics.avg_pnl
@@ -213,6 +218,7 @@ def optimize_sugar_backtest(
     initial_cash: float,
     top_n: int = 10,
 ) -> tuple[str, list[OptimizeResult]]:
+    logger = get_sugar_logger()
     end_date = trade_date or date.today().isoformat()
     data_provider = SugarSRProvider(provider=provider)
     ohlc = data_provider.get_kline(end_date, bars=240)
