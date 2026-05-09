@@ -11,11 +11,32 @@ from tradingagents.agents.managers.sugar_research_manager import (
     generate_sugar_full_report,
 )
 from tradingagents.agents.managers.sugar_backtest_manager import BacktestParams, generate_sugar_backtest_report
+from tradingagents.agents.managers.sugar_backtest_manager import optimize_sugar_backtest
 
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
 
 app = typer.Typer(help="TradingAgents 统一 CLI（含白糖 SR mock 入口）", no_args_is_help=True)
+
+
+def _parse_int_range(raw: str, flag_name: str) -> list[int]:
+    try:
+        values = [int(x.strip()) for x in raw.split(",") if x.strip()]
+    except ValueError as exc:
+        raise typer.BadParameter(f"参数异常：{flag_name} 必须是逗号分隔整数") from exc
+    if not values or any(v < 2 for v in values):
+        raise typer.BadParameter(f"参数异常：{flag_name} 至少包含一个 >= 2 的整数")
+    return values
+
+
+def _parse_float_range(raw: str, flag_name: str, low: float, high: float) -> list[float]:
+    try:
+        values = [float(x.strip()) for x in raw.split(",") if x.strip()]
+    except ValueError as exc:
+        raise typer.BadParameter(f"参数异常：{flag_name} 必须是逗号分隔小数") from exc
+    if not values or any(v <= low or v >= high for v in values):
+        raise typer.BadParameter(f"参数异常：{flag_name} 必须在 ({low}, {high}) 区间")
+    return values
 
 
 @app.command("sugar-sr")
@@ -105,6 +126,47 @@ def sugar_sr_backtest(
 def stock_demo() -> None:
     """兼容旧入口：引导使用原股票 CLI 流程。"""
     typer.echo("请使用 `python -m cli.main analyze` 运行原股票多智能体流程（仅研究辅助）。")
+
+
+@app.command("sugar-sr-optimize")
+def sugar_sr_optimize(
+    provider: str = typer.Option("real", "--provider", help="数据源: real 或 mock"),
+    date: str | None = typer.Option(None, "--date", help="可选：回测结束日期 YYYY-MM-DD（默认今日）"),
+    breakout_range: str = typer.Option("10,20,30", "--breakout-range", help="突破窗口范围，如 10,20,30"),
+    atr_range: str = typer.Option("10,14,20", "--atr-range", help="ATR 周期范围，如 10,14,20"),
+    stop_loss_range: str = typer.Option("0.10,0.15", "--stop-loss-range", help="止损比例范围，如 0.10,0.15"),
+    take_profit_range: str = typer.Option("0.20,0.35", "--take-profit-range", help="止盈比例范围，如 0.20,0.35"),
+    initial_cash: float = typer.Option(1_000_000, "--initial-cash", help="初始资金（默认1000000）"),
+    top_n: int = typer.Option(10, "--top-n", help="输出前 N 个结果"),
+    output: str | None = typer.Option(None, "--output", help="可选：导出 Markdown 排行报告路径"),
+) -> None:
+    """白糖 SR 批量参数扫描（仅研究验证，不用于自动交易）。"""
+    if initial_cash <= 0:
+        raise typer.BadParameter("参数异常：--initial-cash 必须 > 0")
+    if top_n <= 0:
+        raise typer.BadParameter("参数异常：--top-n 必须 > 0")
+
+    b_range = _parse_int_range(breakout_range, "--breakout-range")
+    a_range = _parse_int_range(atr_range, "--atr-range")
+    sl_range = _parse_float_range(stop_loss_range, "--stop-loss-range", 0, 1)
+    tp_range = _parse_float_range(take_profit_range, "--take-profit-range", 0, 2)
+
+    report, _ = optimize_sugar_backtest(
+        provider=provider,
+        trade_date=date,
+        breakout_range=b_range,
+        atr_range=a_range,
+        stop_loss_range=sl_range,
+        take_profit_range=tp_range,
+        initial_cash=initial_cash,
+        top_n=top_n,
+    )
+    typer.echo(report)
+    if output:
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report, encoding="utf-8")
+        typer.echo(f"\n已导出 Markdown 参数扫描报告：{output_path}")
 
 
 if __name__ == "__main__":
