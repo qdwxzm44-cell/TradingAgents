@@ -67,9 +67,9 @@ def generate_sugar_full_report(trade_date: str, provider: str | None = None) -> 
     tech_bias = _extract_last_bold_value(tech_report)
     risk_level = _extract_last_bold_value(risk_report)
 
-    support_line = _extract_metric_line(tech_report, "关键支撑位")
-    resistance_line = _extract_metric_line(tech_report, "关键压力位")
-    atr_line = _extract_metric_line(tech_report, "ATR(5)")
+    support_line = _extract_metric_line(tech_report, "最近20日最低价")
+    resistance_line = _extract_metric_line(tech_report, "最近20日最高价")
+    atr_line = _extract_metric_line(tech_report, "ATR(14)")
     night_line = _extract_metric_line(risk_report, "夜盘时段")
     rollover_line = _extract_metric_line(risk_report, "换月提示")
 
