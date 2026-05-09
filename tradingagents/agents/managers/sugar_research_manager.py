@@ -54,12 +54,16 @@ def _extract_market_env(fund_bias: str, tech_bias: str, risk_level: str) -> str:
     return "分歧环境，信号一致性一般"
 
 
-def generate_sugar_full_report(trade_date: str, provider: str | None = None) -> str:
+def generate_sugar_full_report(
+    trade_date: str,
+    provider: str | None = None,
+    fundamental_file: str | None = None,
+) -> str:
     """生成完整中文白糖 SR 投研日报。"""
     data_provider = SugarSRProvider(provider=provider)
     contract = data_provider.get_main_contract_info(trade_date)
     recent_klines = data_provider.get_kline(trade_date, bars=5)
-    fund_report = generate_sugar_fundamental_report(trade_date)
+    fund_report = generate_sugar_fundamental_report(trade_date, fundamental_file=fundamental_file)
     tech_report = generate_sugar_technical_report(trade_date, provider=provider)
     risk_report = generate_sugar_risk_report(trade_date)
 
@@ -72,6 +76,7 @@ def generate_sugar_full_report(trade_date: str, provider: str | None = None) -> 
     atr_line = _extract_metric_line(tech_report, "ATR(14)")
     night_line = _extract_metric_line(risk_report, "夜盘时段")
     rollover_line = _extract_metric_line(risk_report, "换月提示")
+    fundamental_source_line = _extract_metric_line(fund_report, "基本面数据源")
 
     market_env = _extract_market_env(fund_bias, tech_bias, risk_level)
     if risk_level == "高":
@@ -99,6 +104,8 @@ def generate_sugar_full_report(trade_date: str, provider: str | None = None) -> 
 
 3. 基本面结论
 {fund_bias}
+
+基本面数据源信息：{fundamental_source_line}
 
 4. 技术面结论
 {tech_bias}

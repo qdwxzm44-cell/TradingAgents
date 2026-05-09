@@ -1,10 +1,8 @@
-"""中国白糖（SR）基本面分析 Agent（Phase 2, Mock-only）。"""
+"""中国白糖（SR）基本面分析 Agent。"""
 
 from __future__ import annotations
 
-from tradingagents.dataflows.cn_futures.fundamental_mock_data import (
-    get_sugar_fundamental_mock_snapshot,
-)
+from tradingagents.dataflows.cn_futures.sugar_fundamental_provider import load_sugar_fundamental_snapshot
 
 
 _ALLOWED_VIEWS = ("偏多", "偏空", "中性")
@@ -55,17 +53,20 @@ def _score_bias(snapshot: dict) -> str:
     return "中性"
 
 
-def generate_sugar_fundamental_report(trade_date: str) -> str:
-    """生成中文白糖基本面报告（仅 mock 数据）。"""
-    snapshot = get_sugar_fundamental_mock_snapshot(trade_date)
+def generate_sugar_fundamental_report(trade_date: str, fundamental_file: str | None = None) -> str:
+    """生成中文白糖基本面报告（支持 mock / 本地 CSV / 本地 JSON）。"""
+    snapshot, source_label, warning = load_sugar_fundamental_snapshot(trade_date, fundamental_file=fundamental_file)
     bias = _score_bias(snapshot)
     if bias not in _ALLOWED_VIEWS:
         bias = "中性"
 
-    report = f"""## 中国白糖 SR 基本面分析报告（Mock）
+    warning_block = f"\n- 数据警告：{warning}" if warning else ""
+
+    report = f"""## 中国白糖 SR 基本面分析报告
 
 - 分析日期：{snapshot['trade_date']}
 - 研究定位：仅研究辅助，不自动下单
+- 基本面数据源：{source_label}{warning_block}
 
 ### 1) 产量分析
 {snapshot['production']['interpretation']}（同比：{snapshot['production']['yoy_change_pct']}%）
