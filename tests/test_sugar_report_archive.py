@@ -21,7 +21,9 @@ def test_archive_without_previous_report(tmp_path: Path) -> None:
     )
 
     assert archive_path.exists()
-    assert "15. 较上一期变化" in report
+    assert "15. 交易前检查清单（仅研究辅助）" in report
+    assert "最终状态" in report
+    assert "16. 较上一期变化" in report
     assert "暂无上一期报告可对比。" in report
 
 
@@ -80,4 +82,6 @@ def test_cli_archive_and_markdown_export(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "已归档日报" in result.stdout
     assert out.exists()
-    assert "白糖 SR 投研日报" in out.read_text(encoding="utf-8")
+    content = out.read_text(encoding="utf-8")
+    assert "白糖 SR 投研日报" in content
+    assert "交易前检查清单" in content
