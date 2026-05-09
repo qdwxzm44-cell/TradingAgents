@@ -60,3 +60,50 @@ def test_backtest_invalid_params_error() -> None:
 
     assert result.exit_code != 0
     assert "参数异常：--stop-loss 必须在 (0, 1) 区间" in (result.stdout + result.stderr)
+
+
+def test_optimize_with_mock_provider_and_markdown(tmp_path: Path) -> None:
+    out = tmp_path / "opt.md"
+    result = runner.invoke(
+        app,
+        [
+            "sugar-sr-optimize",
+            "--provider",
+            "mock",
+            "--date",
+            "2026-05-08",
+            "--breakout-range",
+            "10,20",
+            "--atr-range",
+            "10,14",
+            "--stop-loss-range",
+            "0.10,0.15",
+            "--take-profit-range",
+            "0.20,0.35",
+            "--top-n",
+            "3",
+            "--output",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0
+    text = result.stdout + result.stderr
+    assert "白糖 SR 回测参数扫描报告" in text
+    assert "TopN：3" in text
+    assert "防过拟合提示" in text
+    assert out.exists()
+    assert "排名" in out.read_text(encoding="utf-8")
+
+
+def test_optimize_real_provider_fallback() -> None:
+    result = runner.invoke(app, ["sugar-sr-optimize", "--provider", "real", "--date", "2026-05-08", "--top-n", "2"])
+    assert result.exit_code == 0
+    text = result.stdout + result.stderr
+    assert "数据源" in text
+    assert "风险提示" in text
+
+
+def test_optimize_invalid_range_error() -> None:
+    result = runner.invoke(app, ["sugar-sr-optimize", "--stop-loss-range", "1.1"])
+    assert result.exit_code != 0
+    assert "参数异常：--stop-loss-range 必须在 (0, 1) 区间" in (result.stdout + result.stderr)
