@@ -1,31 +1,28 @@
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
+"""项目统一 CLI 入口。"""
+from __future__ import annotations
 
+import typer
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+from tradingagents.agents.managers.sugar_research_manager import generate_sugar_full_report
+
 load_dotenv()
+load_dotenv(".env.enterprise", override=False)
 
-# Create a custom config
-config = DEFAULT_CONFIG.copy()
-config["deep_think_llm"] = "gpt-5.4-mini"  # Use a different model
-config["quick_think_llm"] = "gpt-5.4-mini"  # Use a different model
-config["max_debate_rounds"] = 1  # Increase debate rounds
+app = typer.Typer(help="TradingAgents 统一 CLI（含白糖 SR mock 入口）", no_args_is_help=True)
 
-# Configure data vendors (default uses yfinance, no extra API keys needed)
-config["data_vendors"] = {
-    "core_stock_apis": "yfinance",           # Options: alpha_vantage, yfinance
-    "technical_indicators": "yfinance",      # Options: alpha_vantage, yfinance
-    "fundamental_data": "yfinance",          # Options: alpha_vantage, yfinance
-    "news_data": "yfinance",                 # Options: alpha_vantage, yfinance
-}
 
-# Initialize with custom config
-ta = TradingAgentsGraph(debug=True, config=config)
+@app.command("sugar-sr")
+def sugar_sr(date: str = typer.Option(..., "--date", help="交易日期，格式 YYYY-MM-DD")) -> None:
+    """输出白糖 SR 当日投研日报（mock）。"""
+    typer.echo(generate_sugar_full_report(date))
 
-# forward propagate
-_, decision = ta.propagate("NVDA", "2024-05-10")
-print(decision)
 
-# Memorize mistakes and reflect
-# ta.reflect_and_remember(1000) # parameter is the position returns
+@app.command("stock-demo")
+def stock_demo() -> None:
+    """兼容旧入口：引导使用原股票 CLI 流程。"""
+    typer.echo("请使用 `python -m cli.main analyze` 运行原股票多智能体流程（仅研究辅助）。")
+
+
+if __name__ == "__main__":
+    app()
