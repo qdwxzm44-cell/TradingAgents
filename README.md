@@ -50,7 +50,7 @@
 
 <div align="center">
 
-🚀 [TradingAgents](#tradingagents-framework) | ⚡ [Installation & CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation) | 🍬 [白糖 SR 使用文档](docs/sugar_sr_guide.md)
+🚀 [TradingAgents](#tradingagents-framework) | ⚡ [Installation & CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation) | 🍬 [白糖 SR 使用文档](docs/sugar_sr_guide.md) | 🧾 [白糖 SR v0.1.0 里程碑](CHANGELOG.md#010-sugar-sr--2026-05-09)
 
 </div>
 
