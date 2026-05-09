@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes within the 0.x line are called out explicitly.
 
+## [0.1.0-sugar-sr] — 2026-05-09
+
+### Added
+
+- 白糖 SR 投研日报能力。
+- mock/real provider 双数据源能力。
+- provider 失败 fallback 机制。
+- 本地 CSV/JSON 基本面输入能力。
+- 基于 ATR + 趋势结构（前高前低/突破）的技术分析能力。
+- 风险 Agent 风险提示与风险审阅能力。
+- 交易前 checklist。
+- Markdown 报告导出。
+- 历史归档与上一期对比。
+- 白糖 SR 回测。
+- 白糖 SR 参数扫描。
+- YAML 配置。
+- 白糖 SR 运行日志。
+- pytest 测试覆盖（`tests/sugar_sr`）。
+- 白糖 SR 使用文档。
+
+### Notes
+
+- 本里程碑仅做版本整理，不修改 LangGraph graph，不影响原股票流程。
+- 系统定位为研究辅助与风险分析，明确禁止自动下单。
+
 ## [0.2.4] — 2026-04-25
 
 ### Added
