@@ -19,9 +19,14 @@ def sugar_sr(
     date: str = typer.Option(..., "--date", help="交易日期，格式 YYYY-MM-DD"),
     output: str | None = typer.Option(None, "--output", help="可选：将日报导出为 Markdown 文件路径"),
     provider: str = typer.Option("real", "--provider", help="数据源: real 或 mock"),
+    fundamental_file: str | None = typer.Option(
+        None,
+        "--fundamental-file",
+        help="白糖 SR 基本面本地文件路径（CSV/JSON），例如 data/sugar_fundamental.csv",
+    ),
 ) -> None:
     """输出白糖 SR 当日投研日报。"""
-    report = generate_sugar_full_report(date, provider=provider)
+    report = generate_sugar_full_report(date, provider=provider, fundamental_file=fundamental_file)
     typer.echo(report)
 
     if output:

@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-05-08",
+    "production": 10.15,
+    "sales": 8.92,
+    "inventory": 5.06,
+    "import_volume": 0.41,
+    "raw_sugar_price": 19.75,
+    "usdcny": 7.20,
+    "weather_note": "主产区降雨偏多，关注甘蔗含糖率波动。",
+    "policy_note": "配额与进口政策短期维持稳定。"
+  }
+]
