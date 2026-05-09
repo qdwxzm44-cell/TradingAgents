@@ -6,7 +6,10 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 
-from tradingagents.agents.managers.sugar_research_manager import generate_sugar_full_report
+from tradingagents.agents.managers.sugar_research_manager import (
+    generate_and_archive_sugar_report,
+    generate_sugar_full_report,
+)
 
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
@@ -24,10 +27,23 @@ def sugar_sr(
         "--fundamental-file",
         help="白糖 SR 基本面本地文件路径（CSV/JSON），例如 data/sugar_fundamental.csv",
     ),
+    archive: bool = typer.Option(False, "--archive", help="启用历史归档与上一期对比，写入 reports/sugar_sr/YYYY-MM-DD.md"),
 ) -> None:
     """输出白糖 SR 当日投研日报。"""
-    report = generate_sugar_full_report(date, provider=provider, fundamental_file=fundamental_file)
+    if archive:
+        report, archive_path = generate_and_archive_sugar_report(
+            date,
+            provider=provider,
+            fundamental_file=fundamental_file,
+        )
+    else:
+        report = generate_sugar_full_report(date, provider=provider, fundamental_file=fundamental_file)
+        archive_path = None
+
     typer.echo(report)
+
+    if archive_path:
+        typer.echo(f"\n已归档日报：{archive_path}")
 
     if output:
         output_path = Path(output)
