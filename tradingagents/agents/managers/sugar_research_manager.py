@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
+
 from tradingagents.agents.analysts.sugar_fundamental_analyst import (
     generate_sugar_fundamental_report,
 )
@@ -58,6 +61,7 @@ def generate_sugar_full_report(
     trade_date: str,
     provider: str | None = None,
     fundamental_file: str | None = None,
+    previous_report_summary: str | None = None,
 ) -> str:
     """生成完整中文白糖 SR 投研日报。"""
     data_provider = SugarSRProvider(provider=provider)
@@ -89,6 +93,8 @@ def generate_sugar_full_report(
     strategy = _extract_strategy(fund_bias, tech_bias, risk_level)
     kline_preview = "\n".join([f"- {x['date']}: O={x['open']:.2f}, H={x['high']:.2f}, L={x['low']:.2f}, C={x['close']:.2f}" for x in recent_klines])
 
+
+    compare_section = previous_report_summary or "暂无上一期报告可对比。"
 
     return f"""# 白糖 SR 投研日报
 
@@ -140,7 +146,83 @@ def generate_sugar_full_report(
 14. 风险提示
 {data_provider.last_warning}
 本报告仅用于投研与风险分析，不构成投资建议；禁止自动开仓、自动下单，且不提供任何精确盈利承诺。
+
+15. 较上一期变化
+{compare_section}
 """
+
+
+def _extract_report_field(report_text: str, section_title: str) -> str:
+    for idx, line in enumerate(report_text.splitlines()):
+        if line.strip() == section_title:
+            for next_line in report_text.splitlines()[idx + 1 :]:
+                clean = next_line.strip()
+                if clean:
+                    return clean
+    return "未提取到"
+
+
+def _build_previous_compare_summary(current_report: str, previous_report: str) -> str:
+    mappings = [
+        ("3. 基本面结论", "基本面结论变化"),
+        ("4. 技术面结论", "技术趋势变化"),
+        ("5. 风险等级", "风险等级变化"),
+        ("7. 多空倾向", "多空倾向变化"),
+    ]
+    lines: list[str] = []
+    for section_title, change_label in mappings:
+        current_value = _extract_report_field(current_report, section_title)
+        previous_value = _extract_report_field(previous_report, section_title)
+        if current_value == previous_value:
+            lines.append(f"- {change_label}：无变化（上一期={previous_value}，本期={current_value}）")
+        else:
+            lines.append(f"- {change_label}：{previous_value} -> {current_value}")
+    return "\n".join(lines)
+
+
+def _get_previous_archive_path(archive_path: Path) -> Path | None:
+    archive_dir = archive_path.parent
+    if not archive_dir.exists():
+        return None
+
+    all_reports = sorted(archive_dir.glob("*.md"))
+    previous_candidates = [p for p in all_reports if p.name < archive_path.name]
+    return previous_candidates[-1] if previous_candidates else None
+
+
+def generate_and_archive_sugar_report(
+    trade_date: str,
+    provider: str | None = None,
+    fundamental_file: str | None = None,
+    archive_root: str = "reports/sugar_sr",
+) -> tuple[str, Path]:
+    datetime.strptime(trade_date, "%Y-%m-%d")
+    archive_path = Path(archive_root) / f"{trade_date}.md"
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+
+    previous_path = _get_previous_archive_path(archive_path)
+
+    base_report = generate_sugar_full_report(
+        trade_date,
+        provider=provider,
+        fundamental_file=fundamental_file,
+        previous_report_summary="暂无上一期报告可对比。",
+    )
+
+    if previous_path and previous_path.exists():
+        previous_report = previous_path.read_text(encoding="utf-8")
+        compare_summary = _build_previous_compare_summary(base_report, previous_report)
+        final_report = generate_sugar_full_report(
+            trade_date,
+            provider=provider,
+            fundamental_file=fundamental_file,
+            previous_report_summary=compare_summary,
+        )
+    else:
+        final_report = base_report
+
+    archive_path.write_text(final_report, encoding="utf-8")
+    return final_report, archive_path
 
 
 def create_sugar_research_manager(_llm=None):
