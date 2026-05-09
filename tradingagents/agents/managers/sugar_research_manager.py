@@ -57,6 +57,50 @@ def _extract_market_env(fund_bias: str, tech_bias: str, risk_level: str) -> str:
     return "分歧环境，信号一致性一般"
 
 
+def _build_pre_trade_checklist(
+    fund_bias: str,
+    tech_bias: str,
+    risk_level: str,
+    atr_line: str,
+    rollover_line: str,
+    night_line: str,
+) -> str:
+    atr_high = "是" if "偏高" in atr_line or "高波动" in atr_line else "否"
+    near_rollover = "是" if "临近" in rollover_line else "否"
+    policy_external_risk = "是" if ("政策" in night_line or "外盘" in night_line or "夜盘" in night_line) else "否"
+
+    fundamental_support = "是" if fund_bias in ("偏多", "偏空") else "否"
+    technical_breakout = "是" if tech_bias in ("偏多", "偏空") else "否"
+    acceptable_risk = "是" if risk_level in ("低", "中") else "否"
+    manual_review = "是" if (risk_level == "高" or atr_high == "是" or near_rollover == "是") else "否"
+
+    focus_status = "是"
+    if risk_level == "高" or atr_high == "是":
+        focus_status = "谨慎"
+    if near_rollover == "是" and risk_level == "高":
+        focus_status = "否"
+
+    final_state = "可观察"
+    if risk_level == "高" or near_rollover == "是":
+        final_state = "暂停交易"
+    elif atr_high == "是" or policy_external_risk == "是" or fund_bias != tech_bias:
+        final_state = "谨慎观察"
+
+    return "\n".join(
+        [
+            f"- 今日是否允许关注：{focus_status}",
+            f"- 基本面是否支持方向：{fundamental_support}",
+            f"- 技术面是否出现突破：{technical_breakout}",
+            f"- ATR 波动是否过高：{atr_high}",
+            f"- 风险等级是否可接受：{acceptable_risk}",
+            f"- 是否临近换月：{near_rollover}",
+            f"- 是否存在政策/外盘/夜盘风险：{policy_external_risk}",
+            f"- 是否建议人工复核：{manual_review}",
+            f"- 最终状态：{final_state}",
+        ]
+    )
+
+
 def generate_sugar_full_report(
     trade_date: str,
     provider: str | None = None,
@@ -91,6 +135,14 @@ def generate_sugar_full_report(
         long_short_bias = "中性"
 
     strategy = _extract_strategy(fund_bias, tech_bias, risk_level)
+    checklist = _build_pre_trade_checklist(
+        fund_bias=fund_bias,
+        tech_bias=tech_bias,
+        risk_level=risk_level,
+        atr_line=atr_line,
+        rollover_line=rollover_line,
+        night_line=night_line,
+    )
     kline_preview = "\n".join([f"- {x['date']}: O={x['open']:.2f}, H={x['high']:.2f}, L={x['low']:.2f}, C={x['close']:.2f}" for x in recent_klines])
 
 
@@ -147,7 +199,10 @@ def generate_sugar_full_report(
 {data_provider.last_warning}
 本报告仅用于投研与风险分析，不构成投资建议；禁止自动开仓、自动下单，且不提供任何精确盈利承诺。
 
-15. 较上一期变化
+15. 交易前检查清单（仅研究辅助）
+{checklist}
+
+16. 较上一期变化
 {compare_section}
 """
 
