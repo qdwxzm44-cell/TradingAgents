@@ -22,7 +22,7 @@ def _true_range(curr: dict, prev_close: float) -> float:
     )
 
 
-def _calc_atr(bars: list[dict], period: int = 5) -> float:
+def _calc_atr(bars: list[dict], period: int = 14) -> float:
     if len(bars) < 2:
         return 0.0
     trs = []
@@ -32,68 +32,105 @@ def _calc_atr(bars: list[dict], period: int = 5) -> float:
     return round(sum(window) / len(window), 2) if window else 0.0
 
 
-def _trend_direction(bars: list[dict]) -> str:
+def _swing_structure(bars: list[dict], lookback: int = 6) -> dict:
     if len(bars) < 2:
-        return "震荡"
-    first = bars[0]["close"]
-    last = bars[-1]["close"]
-    if last > first:
-        return "上行"
-    if last < first:
-        return "下行"
-    return "震荡"
+        return {
+            "structure_state": "数据不足",
+            "trend": "震荡",
+            "hh": False,
+            "hl": False,
+            "lh": False,
+            "ll": False,
+        }
+    window = bars[-lookback:] if len(bars) >= lookback else bars
+    highs = [x["high"] for x in window]
+    lows = [x["low"] for x in window]
+    hh = highs[-1] > max(highs[:-1]) if len(highs) > 1 else False
+    ll = lows[-1] < min(lows[:-1]) if len(lows) > 1 else False
+    hl = lows[-1] > lows[0] if len(lows) > 1 else False
+    lh = highs[-1] < highs[0] if len(highs) > 1 else False
+
+    if hh and hl:
+        trend = "多头结构"
+    elif ll and lh:
+        trend = "空头结构"
+    else:
+        trend = "震荡结构"
+    tags = []
+    if hh:
+        tags.append("Higher High")
+    if hl:
+        tags.append("Higher Low")
+    if lh:
+        tags.append("Lower High")
+    if ll:
+        tags.append("Lower Low")
+    return {
+        "structure_state": " + ".join(tags) if tags else "无明显结构",
+        "trend": trend,
+        "hh": hh,
+        "hl": hl,
+        "lh": lh,
+        "ll": ll,
+    }
 
 
-def _support_resistance(bars: list[dict], lookback: int = 6) -> tuple[float, float]:
+def _support_resistance(bars: list[dict], lookback: int = 20) -> tuple[float, float]:
     window = bars[-lookback:] if len(bars) >= lookback else bars
     support = min(x["low"] for x in window)
     resistance = max(x["high"] for x in window)
     return float(support), float(resistance)
 
 
-def _breakout_state(last_close: float, support: float, resistance: float, atr: float) -> str:
-    band = atr * 0.2
-    if last_close > resistance - band:
-        return "上沿附近，存在向上突破可能"
-    if last_close < support + band:
-        return "下沿附近，存在向下破位风险"
-    return "区间内运行，暂未突破"
+def _breakout_state(last_close: float, low20: float, high20: float) -> str:
+    if last_close > high20:
+        return "是（向上突破）"
+    if last_close < low20:
+        return "是（向下突破）"
+    return "否"
 
 
-def _risk_level(atr: float, close_price: float) -> str:
+def _volatility_state(atr: float, close_price: float) -> str:
     if close_price <= 0:
-        return "中"
+        return "正常波动"
     atr_pct = atr / close_price
-    if atr_pct >= 0.02:
-        return "高"
-    if atr_pct >= 0.01:
-        return "中"
-    return "低"
+    if atr_pct >= 0.025:
+        return "高波动"
+    if atr_pct >= 0.012:
+        return "正常波动"
+    return "低波动"
 
 
-def generate_sugar_technical_report(trade_date: str, bars: int = 12, provider: str | None = None) -> str:
+def generate_sugar_technical_report(trade_date: str, bars: int = 30, provider: str | None = None) -> str:
     """生成中文技术面分析报告（基于 SR OHLC + ATR）。"""
     data_provider = SugarSRProvider(provider=provider)
-    ohlc = data_provider.get_kline(trade_date, bars=bars)
+    fetch_bars = max(bars, 30)
+    ohlc = data_provider.get_kline(trade_date, bars=fetch_bars)
     if not ohlc:
         return "无法生成技术分析报告：缺少K线数据。"
+    warning_msgs = []
+    if len(ohlc) < 20:
+        warning_msgs.append("⚠️ 中文警告：K线少于20根，20日高低点与突破判断可能失真。")
+    if len(ohlc) < 15:
+        warning_msgs.append("⚠️ 中文警告：K线少于15根，ATR(14)稳定性不足，仅供参考。")
 
-    trend = _trend_direction(ohlc)
-    support, resistance = _support_resistance(ohlc)
-    atr = _calc_atr(ohlc, period=5)
+    support, resistance = _support_resistance(ohlc, lookback=20)
+    atr = _calc_atr(ohlc, period=14)
     last_close = float(ohlc[-1]["close"])
-    breakout = _breakout_state(last_close, support, resistance, atr)
-    risk = _risk_level(atr, last_close)
+    breakout = _breakout_state(last_close, support, resistance)
+    structure = _swing_structure(ohlc, lookback=6)
+    trend = structure["trend"]
+    volatility = _volatility_state(atr, last_close)
 
     bias_score = 0
-    if trend == "上行":
+    if trend == "多头结构":
         bias_score += 1
-    elif trend == "下行":
+    elif trend == "空头结构":
         bias_score -= 1
 
     if "向上突破" in breakout:
         bias_score += 1
-    elif "向下破位" in breakout:
+    elif "向下突破" in breakout:
         bias_score -= 1
 
     if bias_score > 0:
@@ -113,28 +150,25 @@ def generate_sugar_technical_report(trade_date: str, bars: int = 12, provider: s
 - 数据源：{data_provider.last_source}
 - 数据范围：最近 {len(ohlc)} 根 OHLC K线
 
-### 1) 当前趋势
-当前趋势判断：**{trend}**。
+### 1) 技术结构
+趋势：**{trend}**  
+结构状态：**{structure['structure_state']}**
 
-### 2) 关键支撑位
-关键支撑位：**{support:.2f}**。
+### 2) 20日关键位
+最近20日最低价：**{support:.2f}**  
+最近20日最高价：**{resistance:.2f}**
 
-### 3) 关键压力位
-关键压力位：**{resistance:.2f}**。
+### 3) ATR 波动率
+ATR(14)：**{atr:.2f}**，收盘价：**{last_close:.2f}**，ATR/收盘约 **{(atr/last_close*100):.2f}%**。  
+波动率状态：**{volatility}**
 
-### 4) ATR 波动风险
-ATR(5)：**{atr:.2f}**，收盘价：**{last_close:.2f}**，ATR/收盘约 **{(atr/last_close*100):.2f}%**。
-
-### 5) 是否处于突破阶段
-{breakout}。
-
-### 6) 风险等级
-综合波动风险等级：**{risk}**。
+### 4) Breakout 检测（20日）
+20日突破：**{breakout}**
 
 ## 技术面结论
 **{bias}**
 
-{data_provider.last_warning}
+{"".join([msg + "\n" for msg in warning_msgs])}{data_provider.last_warning}
 
 > 风险提示：本报告仅用于研究辅助与风险分析，不构成投资建议，禁止用于自动下单。
 """
