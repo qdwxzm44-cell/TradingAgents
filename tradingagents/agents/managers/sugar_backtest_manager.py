@@ -51,11 +51,26 @@ def generate_sugar_backtest_report(provider: str = "real", trade_date: str | Non
     data_provider = SugarSRProvider(provider=provider)
     ohlc = data_provider.get_kline(end_date, bars=max(60, bars))
 
+    breakout_period = 20
+    atr_period = 14
+    stop_loss_ratio = 0.02
+    take_profit_ratio = 0.04
+
     if len(ohlc) < 25:
         return (
             "## 白糖 SR 回测摘要\n\n"
             "数据不足，无法进行有效回测（至少需要 25 根K线）。\n\n"
-            "> 风险提示：本模块仅用于研究验证，不构成投资建议，禁止自动下单。"
+            "### 参数摘要\n"
+            f"- 突破周期：{breakout_period}\n"
+            f"- ATR周期：{atr_period}\n"
+            f"- 止损比例：{stop_loss_ratio:.0%}\n"
+            f"- 止盈比例：{take_profit_ratio:.0%}\n\n"
+            "### 防过拟合提示\n"
+            "- 不要只看单次回测。\n"
+            "- 不要频繁调参迎合历史。\n"
+            "- 必须考虑手续费、滑点、换月、极端行情。\n"
+            "- 必须做样本外验证。\n\n"
+            "> 风险提示：本回测不构成投资建议，不代表未来收益，不可直接用于实盘自动交易。"
         )
 
     trades: list[_Trade] = []
@@ -68,18 +83,18 @@ def generate_sugar_backtest_report(provider: str = "real", trade_date: str | Non
     stop_loss = 0.0
     take_profit = 0.0
 
-    for i in range(20, len(ohlc)):
+    for i in range(breakout_period, len(ohlc)):
         bar = ohlc[i]
-        prev20_high = max(x["high"] for x in ohlc[i - 20 : i])
+        prev20_high = max(x["high"] for x in ohlc[i - breakout_period : i])
 
         if not in_pos:
             if bar["close"] > prev20_high:
                 signal_count += 1
-                atr = _calc_atr_window(ohlc, i, period=14)
+                atr = _calc_atr_window(ohlc, i, period=atr_period)
                 entry_price = bar["close"]
                 entry_date = bar["date"]
-                stop_loss = max(entry_price - 2 * atr, entry_price * (1 - 0.02))
-                take_profit = entry_price * (1 + 0.04)
+                stop_loss = max(entry_price - 2 * atr, entry_price * (1 - stop_loss_ratio))
+                take_profit = entry_price * (1 + take_profit_ratio)
                 in_pos = True
             continue
 
@@ -112,6 +127,14 @@ def generate_sugar_backtest_report(provider: str = "real", trade_date: str | Non
 - 回测区间：{ohlc[0]['date']} 至 {ohlc[-1]['date']}
 - 数据源：{data_provider.last_source}
 - 策略说明：20日突破做多观察信号 + ATR止损 + 固定2%止损/4%止盈
+
+### 参数摘要
+- 突破周期：{breakout_period}
+- ATR周期：{atr_period}
+- 止损比例：{stop_loss_ratio:.0%}
+- 止盈比例：{take_profit_ratio:.0%}
+
+### 回测统计
 - 信号次数：{signal_count}
 - 完成交易数：{len(trades)}
 - 胜率：{win_rate:.2f}%
@@ -119,6 +142,12 @@ def generate_sugar_backtest_report(provider: str = "real", trade_date: str | Non
 - 最大回撤：{mdd:.2f}%
 - 简单资金曲线摘要（最近6节点）：{equity_summary}
 
+### 防过拟合提示
+- 不要只看单次回测。
+- 不要频繁调参迎合历史。
+- 必须考虑手续费、滑点、换月、极端行情。
+- 必须做样本外验证。
+
 {data_provider.last_warning}
-> 风险提示：本回测仅用于研究验证，不代表未来收益，不构成投资建议，严禁用于自动下单或实盘交易指令生成。
+> 风险提示：本回测不构成投资建议，不代表未来收益，不可直接用于实盘自动交易。
 """

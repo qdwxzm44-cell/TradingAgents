@@ -57,10 +57,17 @@ def sugar_sr(
 def sugar_sr_backtest(
     provider: str = typer.Option("real", "--provider", help="数据源: real 或 mock"),
     date: str | None = typer.Option(None, "--date", help="可选：回测结束日期 YYYY-MM-DD（默认今日）"),
+    output: str | None = typer.Option(None, "--output", help="可选：将回测报告导出为 Markdown 文件路径"),
 ) -> None:
     """输出白糖 SR 研究用途的简单历史回测摘要。"""
     report = generate_sugar_backtest_report(provider=provider, trade_date=date)
     typer.echo(report)
+
+    if output:
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report, encoding="utf-8")
+        typer.echo(f"\n已导出 Markdown 回测报告：{output_path}")
 
 
 @app.command("stock-demo")
