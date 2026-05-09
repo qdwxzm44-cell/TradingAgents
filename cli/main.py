@@ -1197,6 +1197,30 @@ def run_analysis(checkpoint: bool = False):
         display_complete_report(final_state)
 
 
+@app.command("sugar-sr")
+def sugar_sr_report(
+    date: str = typer.Option(
+        datetime.date.today().isoformat(),
+        "--date",
+        help="分析日期，格式 YYYY-MM-DD",
+    )
+):
+    """输出白糖 SR 投研日报（Mock，研究辅助）。"""
+    from tradingagents.agents.managers.sugar_research_manager import generate_sugar_full_report
+
+    try:
+        # Validate date format
+        datetime.date.fromisoformat(date)
+    except ValueError:
+        console.print("[red]日期格式错误，请使用 YYYY-MM-DD，例如 2026-05-08。[/red]")
+        raise typer.Exit(code=1)
+
+    report = generate_sugar_full_report(date)
+    console.print(Markdown(report))
+    console.print("\n[yellow]风险提示：当前为 mock 数据，仅用于投研研究辅助，禁止自动下单。[/yellow]")
+
+
+
 @app.command()
 def analyze(
     checkpoint: bool = typer.Option(
