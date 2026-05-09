@@ -1,0 +1,140 @@
+"""中国白糖 SR 总报告 Agent（Phase 5, Mock-only）。
+
+职责：汇总基本面、技术面、风险面，输出中文投研日报。
+约束：仅研究辅助，禁止自动下单。
+"""
+
+from __future__ import annotations
+
+from tradingagents.agents.analysts.sugar_fundamental_analyst import (
+    generate_sugar_fundamental_report,
+)
+from tradingagents.agents.analysts.sugar_technical_analyst import (
+    generate_sugar_technical_report,
+)
+from tradingagents.agents.risk_mgmt.sugar_risk_analyst import generate_sugar_risk_report
+from tradingagents.dataflows.cn_futures.mock_data import get_mock_main_contract
+
+
+def _extract_last_bold_value(text: str) -> str:
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    for ln in reversed(lines):
+        if ln.startswith("**") and ln.endswith("**") and len(ln) > 4:
+            return ln.strip("*")
+    return "中性"
+
+
+def _extract_metric_line(text: str, key: str) -> str:
+    candidates = []
+    for ln in text.splitlines():
+        raw = ln.strip()
+        if key in raw:
+            candidates.append(raw)
+    for ln in candidates:
+        if "：" in ln or ":" in ln:
+            return ln
+    return candidates[-1] if candidates else "未提取到"
+
+
+def _extract_strategy(fund_bias: str, tech_bias: str, risk_level: str) -> str:
+    if risk_level == "高":
+        return "高风险禁止交易"
+    if fund_bias == "偏多" and tech_bias == "偏多":
+        return "谨慎偏多"
+    if fund_bias == "偏空" and tech_bias == "偏空":
+        return "谨慎偏空"
+    return "观望"
+
+
+def _extract_market_env(fund_bias: str, tech_bias: str, risk_level: str) -> str:
+    if risk_level == "高":
+        return "高波动高不确定环境"
+    if fund_bias == tech_bias and fund_bias in ("偏多", "偏空"):
+        return "方向相对一致但需风控"
+    return "分歧环境，信号一致性一般"
+
+
+def generate_sugar_full_report(trade_date: str) -> str:
+    """生成完整中文白糖 SR 投研日报（mock）。"""
+    contract = get_mock_main_contract(trade_date)
+    fund_report = generate_sugar_fundamental_report(trade_date)
+    tech_report = generate_sugar_technical_report(trade_date)
+    risk_report = generate_sugar_risk_report(trade_date)
+
+    fund_bias = _extract_last_bold_value(fund_report)
+    tech_bias = _extract_last_bold_value(tech_report)
+    risk_level = _extract_last_bold_value(risk_report)
+
+    support_line = _extract_metric_line(tech_report, "关键支撑位")
+    resistance_line = _extract_metric_line(tech_report, "关键压力位")
+    atr_line = _extract_metric_line(tech_report, "ATR(5)")
+    night_line = _extract_metric_line(risk_report, "夜盘时段")
+    rollover_line = _extract_metric_line(risk_report, "换月提示")
+
+    market_env = _extract_market_env(fund_bias, tech_bias, risk_level)
+    if risk_level == "高":
+        long_short_bias = "中性"
+    elif fund_bias == tech_bias:
+        long_short_bias = fund_bias
+    else:
+        long_short_bias = "中性"
+
+    strategy = _extract_strategy(fund_bias, tech_bias, risk_level)
+
+    return f"""# 白糖 SR 投研日报
+
+- 日期：{trade_date}
+- 研究定位：仅研究辅助，不自动下单
+
+1. 当前主力合约
+{contract['main_contract']}（交易所：{contract['exchange']}）
+
+2. 基本面结论
+{fund_bias}
+
+3. 技术面结论
+{tech_bias}
+
+4. 风险等级
+{risk_level}
+
+5. 当前市场环境
+{market_env}
+
+6. 多空倾向
+{long_short_bias}
+
+7. 关键支撑位
+{support_line}
+
+8. 关键压力位
+{resistance_line}
+
+9. ATR波动风险
+{atr_line}
+
+10. 夜盘风险
+{night_line}
+
+11. 换月风险
+{rollover_line}
+
+12. 策略建议
+{strategy}
+
+13. 风险提示
+本报告基于 mock 数据生成，仅用于投研与系统联调，不构成投资建议；禁止自动开仓、自动下单，且不提供任何精确盈利承诺。
+"""
+
+
+def create_sugar_research_manager(_llm=None):
+    """兼容现有 manager 工厂风格；本阶段不依赖 LLM。"""
+
+    def sugar_research_node(state):
+        trade_date = str(state.get("trade_date", "2026-01-01"))
+        report = generate_sugar_full_report(trade_date)
+        return {
+            "sugar_sr_daily_report": report,
+        }
+
+    return sugar_research_node
