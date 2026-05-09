@@ -1,6 +1,8 @@
 """项目统一 CLI 入口。"""
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 from dotenv import load_dotenv
 
@@ -13,9 +15,19 @@ app = typer.Typer(help="TradingAgents 统一 CLI（含白糖 SR mock 入口）",
 
 
 @app.command("sugar-sr")
-def sugar_sr(date: str = typer.Option(..., "--date", help="交易日期，格式 YYYY-MM-DD")) -> None:
+def sugar_sr(
+    date: str = typer.Option(..., "--date", help="交易日期，格式 YYYY-MM-DD"),
+    output: str | None = typer.Option(None, "--output", help="可选：将日报导出为 Markdown 文件路径"),
+) -> None:
     """输出白糖 SR 当日投研日报（mock）。"""
-    typer.echo(generate_sugar_full_report(date))
+    report = generate_sugar_full_report(date)
+    typer.echo(report)
+
+    if output:
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report, encoding="utf-8")
+        typer.echo(f"\n已导出 Markdown 报告：{output_path}")
 
 
 @app.command("stock-demo")
