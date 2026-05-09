@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from tradingagents.config.cn_futures_config import get_cn_futures_config
+from tradingagents.utils.sugar_logger import get_sugar_logger
 from .mock_data import get_mock_contract_specs, get_mock_main_contract, get_mock_ohlc
 from .real_data import get_real_sugar_main_daily
 
@@ -20,6 +21,7 @@ class SugarSRProvider:
         self.provider = (provider or self.sr_config.get("data_provider", "real")).lower()
         self.last_source = "MOCK"
         self.last_warning = ""
+        self.logger = get_sugar_logger()
 
     def get_main_contract_info(self, trade_date: str) -> dict:
         info = get_mock_main_contract(trade_date)
@@ -47,13 +49,16 @@ class SugarSRProvider:
         self.last_warning = ""
         if self.provider == "mock":
             self.last_source = "MOCK"
+            self.logger.info("白糖 SR 行情使用 MOCK 数据源。")
             return get_mock_ohlc(trade_date, bars=bars)
 
         try:
             rows = get_real_sugar_main_daily(trade_date, bars=bars)
             self.last_source = "REAL"
+            self.logger.info("白糖 SR 行情使用 REAL 数据源。")
             return rows
         except Exception as exc:
             self.last_source = "MOCK FALLBACK"
             self.last_warning = f"⚠️ 中文警告：真实行情获取失败，已自动回退 mock 数据。原因：{exc}"
+            self.logger.warning(self.last_warning)
             return get_mock_ohlc(trade_date, bars=bars)

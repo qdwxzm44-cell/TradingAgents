@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from tradingagents.utils.sugar_logger import get_sugar_logger
 
 
 @dataclass(frozen=True)
@@ -107,13 +108,18 @@ def _validate_and_merge(raw: dict[str, object]) -> tuple[SugarSRConfig, list[str
 
 
 def load_sugar_sr_config(path: str = "config/sugar_sr.yaml") -> tuple[SugarSRConfig, list[str]]:
+    logger = get_sugar_logger()
     p = Path(path)
     if not p.exists():
-        return DEFAULT_CONFIG, [f"[配置警告] 未找到配置文件 {path}，已使用默认配置"]
+        msg = f"[配置警告] 未找到配置文件 {path}，已使用默认配置"
+        logger.warning(msg)
+        return DEFAULT_CONFIG, [msg]
     try:
         raw = _read_simple_yaml(p)
     except Exception as exc:
-        return DEFAULT_CONFIG, [f"[配置警告] 读取配置失败: {exc}，已使用默认配置"]
+        msg = f"[配置警告] 读取配置失败: {exc}，已使用默认配置"
+        logger.error(msg)
+        return DEFAULT_CONFIG, [msg]
     return _validate_and_merge(raw)
 
 
