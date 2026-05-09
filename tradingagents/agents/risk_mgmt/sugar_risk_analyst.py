@@ -13,6 +13,9 @@ from tradingagents.dataflows.cn_futures.fundamental_mock_data import (
 )
 from tradingagents.dataflows.cn_futures.mock_data import get_mock_main_contract
 
+LOW_RISK_MAX_SCORE = 8
+MEDIUM_RISK_MAX_SCORE = 11
+
 
 def _mock_risk_snapshot(trade_date: str) -> dict:
     cfg = get_cn_futures_config()
@@ -45,9 +48,9 @@ def _risk_level(score: int) -> str:
     - 高：>= 12
     这样三个等级在不同场景均可达。
     """
-    if score >= 12:
+    if score > MEDIUM_RISK_MAX_SCORE:
         return "高"
-    if score >= 9:
+    if score > LOW_RISK_MAX_SCORE:
         return "中"
     return "低"
 
