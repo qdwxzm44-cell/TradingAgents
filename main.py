@@ -10,7 +10,7 @@ from tradingagents.agents.managers.sugar_research_manager import (
     generate_and_archive_sugar_report,
     generate_sugar_full_report,
 )
-from tradingagents.agents.managers.sugar_backtest_manager import generate_sugar_backtest_report
+from tradingagents.agents.managers.sugar_backtest_manager import BacktestParams, generate_sugar_backtest_report
 
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
@@ -58,9 +58,40 @@ def sugar_sr_backtest(
     provider: str = typer.Option("real", "--provider", help="数据源: real 或 mock"),
     date: str | None = typer.Option(None, "--date", help="可选：回测结束日期 YYYY-MM-DD（默认今日）"),
     output: str | None = typer.Option(None, "--output", help="可选：将回测报告导出为 Markdown 文件路径"),
+    breakout_window: int = typer.Option(20, "--breakout-window", help="突破窗口（默认20）"),
+    atr_period: int = typer.Option(14, "--atr-period", help="ATR周期（默认14）"),
+    stop_loss: float = typer.Option(0.15, "--stop-loss", help="止损比例（默认0.15）"),
+    take_profit: float = typer.Option(0.35, "--take-profit", help="止盈比例（默认0.35）"),
+    initial_cash: float = typer.Option(1_000_000, "--initial-cash", help="初始资金（默认1000000）"),
 ) -> None:
     """输出白糖 SR 研究用途的简单历史回测摘要。"""
-    report = generate_sugar_backtest_report(provider=provider, trade_date=date)
+    if breakout_window < 2:
+        raise typer.BadParameter("参数异常：--breakout-window 必须 >= 2")
+    if atr_period < 2:
+        raise typer.BadParameter("参数异常：--atr-period 必须 >= 2")
+    if not (0 < stop_loss < 1):
+        raise typer.BadParameter("参数异常：--stop-loss 必须在 (0, 1) 区间")
+    if not (0 < take_profit < 2):
+        raise typer.BadParameter("参数异常：--take-profit 必须在 (0, 2) 区间")
+    if initial_cash <= 0:
+        raise typer.BadParameter("参数异常：--initial-cash 必须 > 0")
+
+    params = BacktestParams(
+        breakout_window=breakout_window,
+        atr_period=atr_period,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        initial_cash=initial_cash,
+    )
+    typer.echo(
+        "参数摘要："
+        f"breakout_window={params.breakout_window}, "
+        f"atr_period={params.atr_period}, "
+        f"stop_loss={params.stop_loss}, "
+        f"take_profit={params.take_profit}, "
+        f"initial_cash={params.initial_cash}"
+    )
+    report = generate_sugar_backtest_report(provider=provider, trade_date=date, params=params)
     typer.echo(report)
 
     if output:

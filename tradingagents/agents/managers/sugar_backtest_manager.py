@@ -23,6 +23,15 @@ class _Trade:
     pnl: float
 
 
+@dataclass(frozen=True)
+class BacktestParams:
+    breakout_window: int = 20
+    atr_period: int = 14
+    stop_loss: float = 0.15
+    take_profit: float = 0.35
+    initial_cash: float = 1_000_000
+
+
 def _true_range(curr: dict, prev_close: float) -> float:
     return max(curr["high"] - curr["low"], abs(curr["high"] - prev_close), abs(curr["low"] - prev_close))
 
@@ -45,16 +54,23 @@ def _max_drawdown(equity: list[float]) -> float:
     return max_dd
 
 
-def generate_sugar_backtest_report(provider: str = "real", trade_date: str | None = None, bars: int = 240) -> str:
+def generate_sugar_backtest_report(
+    provider: str = "real",
+    trade_date: str | None = None,
+    bars: int = 240,
+    params: BacktestParams | None = None,
+) -> str:
     """生成中文回测摘要。"""
     end_date = trade_date or date.today().isoformat()
     data_provider = SugarSRProvider(provider=provider)
     ohlc = data_provider.get_kline(end_date, bars=max(60, bars))
 
-    breakout_period = 20
-    atr_period = 14
-    stop_loss_ratio = 0.02
-    take_profit_ratio = 0.04
+    conf = params or BacktestParams()
+    breakout_period = conf.breakout_window
+    atr_period = conf.atr_period
+    stop_loss_ratio = conf.stop_loss
+    take_profit_ratio = conf.take_profit
+    initial_cash = conf.initial_cash
 
     if len(ohlc) < 25:
         return (
@@ -74,7 +90,7 @@ def generate_sugar_backtest_report(provider: str = "real", trade_date: str | Non
         )
 
     trades: list[_Trade] = []
-    equity = [1.0]
+    equity = [initial_cash]
     signal_count = 0
 
     in_pos = False
@@ -126,13 +142,14 @@ def generate_sugar_backtest_report(provider: str = "real", trade_date: str | Non
 
 - 回测区间：{ohlc[0]['date']} 至 {ohlc[-1]['date']}
 - 数据源：{data_provider.last_source}
-- 策略说明：20日突破做多观察信号 + ATR止损 + 固定2%止损/4%止盈
+- 策略说明：突破做多观察信号 + ATR止损 + 固定比例止盈止损
 
 ### 参数摘要
 - 突破周期：{breakout_period}
 - ATR周期：{atr_period}
 - 止损比例：{stop_loss_ratio:.0%}
 - 止盈比例：{take_profit_ratio:.0%}
+- 初始资金：{initial_cash:,.2f}
 
 ### 回测统计
 - 信号次数：{signal_count}
