@@ -13,7 +13,7 @@ from tradingagents.agents.analysts.sugar_technical_analyst import (
     generate_sugar_technical_report,
 )
 from tradingagents.agents.risk_mgmt.sugar_risk_analyst import generate_sugar_risk_report
-from tradingagents.dataflows.cn_futures.mock_data import get_mock_main_contract
+from tradingagents.dataflows.cn_futures.sugar_sr_provider import SugarSRProvider
 
 
 def _extract_last_bold_value(text: str) -> str:
@@ -54,11 +54,13 @@ def _extract_market_env(fund_bias: str, tech_bias: str, risk_level: str) -> str:
     return "分歧环境，信号一致性一般"
 
 
-def generate_sugar_full_report(trade_date: str) -> str:
-    """生成完整中文白糖 SR 投研日报（mock）。"""
-    contract = get_mock_main_contract(trade_date)
+def generate_sugar_full_report(trade_date: str, provider: str | None = None) -> str:
+    """生成完整中文白糖 SR 投研日报。"""
+    data_provider = SugarSRProvider(provider=provider)
+    contract = data_provider.get_main_contract_info(trade_date)
+    recent_klines = data_provider.get_kline(trade_date, bars=5)
     fund_report = generate_sugar_fundamental_report(trade_date)
-    tech_report = generate_sugar_technical_report(trade_date)
+    tech_report = generate_sugar_technical_report(trade_date, provider=provider)
     risk_report = generate_sugar_risk_report(trade_date)
 
     fund_bias = _extract_last_bold_value(fund_report)
@@ -80,50 +82,57 @@ def generate_sugar_full_report(trade_date: str) -> str:
         long_short_bias = "中性"
 
     strategy = _extract_strategy(fund_bias, tech_bias, risk_level)
+    kline_preview = "\n".join([f"- {x['date']}: O={x['open']:.2f}, H={x['high']:.2f}, L={x['low']:.2f}, C={x['close']:.2f}" for x in recent_klines])
+
 
     return f"""# 白糖 SR 投研日报
 
 - 日期：{trade_date}
 - 研究定位：仅研究辅助，不自动下单
+- 当前数据源：{data_provider.last_source}
 
 1. 当前主力合约
 {contract['main_contract']}（交易所：{contract['exchange']}）
 
-2. 基本面结论
+2. 最近K线预览
+{kline_preview}
+
+3. 基本面结论
 {fund_bias}
 
-3. 技术面结论
+4. 技术面结论
 {tech_bias}
 
-4. 风险等级
+5. 风险等级
 {risk_level}
 
-5. 当前市场环境
+6. 当前市场环境
 {market_env}
 
-6. 多空倾向
+7. 多空倾向
 {long_short_bias}
 
-7. 关键支撑位
+8. 关键支撑位
 {support_line}
 
-8. 关键压力位
+9. 关键压力位
 {resistance_line}
 
-9. ATR波动风险
+10. ATR波动风险
 {atr_line}
 
-10. 夜盘风险
+11. 夜盘风险
 {night_line}
 
-11. 换月风险
+12. 换月风险
 {rollover_line}
 
-12. 策略建议
+13. 策略建议
 {strategy}
 
-13. 风险提示
-本报告基于 mock 数据生成，仅用于投研与系统联调，不构成投资建议；禁止自动开仓、自动下单，且不提供任何精确盈利承诺。
+14. 风险提示
+{data_provider.last_warning}
+本报告仅用于投研与风险分析，不构成投资建议；禁止自动开仓、自动下单，且不提供任何精确盈利承诺。
 """
 
 

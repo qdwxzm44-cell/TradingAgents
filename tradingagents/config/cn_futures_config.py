@@ -31,6 +31,7 @@ SR_CONTRACT_CONFIG = {
     "open_fee_per_lot": 3.0,
     "close_fee_per_lot": 3.0,
     "night_session": "21:00-23:00",
+    "data_provider": "real",
 }
 
 

@@ -18,9 +18,10 @@ app = typer.Typer(help="TradingAgents 统一 CLI（含白糖 SR mock 入口）",
 def sugar_sr(
     date: str = typer.Option(..., "--date", help="交易日期，格式 YYYY-MM-DD"),
     output: str | None = typer.Option(None, "--output", help="可选：将日报导出为 Markdown 文件路径"),
+    provider: str = typer.Option("real", "--provider", help="数据源: real 或 mock"),
 ) -> None:
-    """输出白糖 SR 当日投研日报（mock）。"""
-    report = generate_sugar_full_report(date)
+    """输出白糖 SR 当日投研日报。"""
+    report = generate_sugar_full_report(date, provider=provider)
     typer.echo(report)
 
     if output:

@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from tradingagents.dataflows.cn_futures.mock_data import get_mock_ohlc
+from tradingagents.dataflows.cn_futures.sugar_sr_provider import SugarSRProvider
 
 
 _ALLOWED_VIEWS = ("偏多", "偏空", "中性")
@@ -71,9 +71,10 @@ def _risk_level(atr: float, close_price: float) -> str:
     return "低"
 
 
-def generate_sugar_technical_report(trade_date: str, bars: int = 12) -> str:
-    """生成中文技术面分析报告（基于 mock OHLC + ATR）。"""
-    ohlc = get_mock_ohlc(trade_date, bars=bars)
+def generate_sugar_technical_report(trade_date: str, bars: int = 12, provider: str | None = None) -> str:
+    """生成中文技术面分析报告（基于 SR OHLC + ATR）。"""
+    data_provider = SugarSRProvider(provider=provider)
+    ohlc = data_provider.get_kline(trade_date, bars=bars)
     if not ohlc:
         return "无法生成技术分析报告：缺少K线数据。"
 
@@ -109,7 +110,8 @@ def generate_sugar_technical_report(trade_date: str, bars: int = 12) -> str:
 
 - 分析日期：{trade_date}
 - 研究定位：仅研究辅助，不自动下单
-- 数据范围：最近 {len(ohlc)} 根 mock OHLC K线
+- 数据源：{data_provider.last_source}
+- 数据范围：最近 {len(ohlc)} 根 OHLC K线
 
 ### 1) 当前趋势
 当前趋势判断：**{trend}**。
@@ -132,7 +134,9 @@ ATR(5)：**{atr:.2f}**，收盘价：**{last_close:.2f}**，ATR/收盘约 **{(at
 ## 技术面结论
 **{bias}**
 
-> 风险提示：本报告仅基于 mock K 线生成，不包含真实行情与成交量信息，不构成投资建议，禁止用于自动下单。
+{data_provider.last_warning}
+
+> 风险提示：本报告仅用于研究辅助与风险分析，不构成投资建议，禁止用于自动下单。
 """
 
 
